@@ -17,7 +17,7 @@ services:
       - doc-network
 
   mongo:
-    image: mongo:7.0
+    image: mongo:4.0
     container_name: mongodb
     restart: always
     environment:
