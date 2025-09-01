@@ -1,6 +1,5 @@
-# Compiled Object files
-*.o
-*.a
-*.so
-
-.vscode
+.env
+__pycache__/
+/old/
+/.venv/
+/.idea/

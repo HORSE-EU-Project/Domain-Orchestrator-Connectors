@@ -1,0 +1,69 @@
+#Available TestBeds
+defaults:
+  qos_units:
+    rps: rps
+    bw: mbps
+  dns_device: dns-s
+  dns_iface: eth0
+
+testbeds:
+  umu:
+    base_url: "http://10.208.11.70:8002/meservice"
+    message_type: umu_xml
+    allowed_actions:
+      - dns_rate_limiting
+      - rate_limiting
+      - block_pod_address
+  upc:
+    message_type: upc_json
+    endpoints:
+      execute_test_1: "http://10.19.2.1:8001/execute_test"
+      execute_test_2: "http://10.19.2.1:8001/execute_test"
+      dns_rate_limiting: "http://10.19.2.1:8001/dns_rate_limiting"
+      router_rate_limiting: "http://10.19.2.1:8001/router_rate_limiting"
+      block_ip_addresses: "http://10.19.2.1:8001/block_ip_addresses"
+      block_ues_multidomain: "http://10.19.2.1:8001/block_ues_multidomain"
+      define_dns_servers: "http://10.19.2.1:8001/define_dns_servers"
+      firewall_pfcp_requests: "http://10.19.2.1:8001/firewall_pfcp_requests"
+      validate_smf_integrity: "http://10.19.2.1:8001/validate_smf_integrity"
+
+actions:
+  execute_test_1:
+    fields: { test_id: int|str , modules: list }
+  execute_test_2:
+    fields: { test_id: int|str , modules: list }
+  dns_rate_limiting:
+    fields: { rate: int|str , duration: int|str|None , source_ip_filter: list }
+  router_rate_limiting:
+    fields: { device: str, rate: int|str, duration: int|str }
+  block_ip_addresses:
+    fields: { blocked_ips: list }
+  block_ues_multidomain:
+    fields: { domains: list|None, rate_limiting: int }
+  udp_traffic_filter:
+    fields: { protocol: [ TCP,UDP ], source_ip_filter: list , destination_port: int|str }
+  ntp_access_control:
+    fields: { authorized_hosts: list , mode: str }
+  define_dns_servers:
+    fields: { dns_servers: list }
+  firewall_pfcp_requests:
+    fields: { drop_percentage: int|str , request_types: list }
+  validate_smf_integrity:
+    fields: { check: str , action: str }
+  data_reset_request:
+    fields: { target_module: str , reset_interval: int|str }
+  data_verification_request:
+    fields: { target_module: str , verification_mode: str }
+  tbd:
+    fields: { details: str }
+  filter_malicious_access:
+    fields: { actor: str , response: str }
+  api_rate_limiting:
+    fields: { limit: int|str }
+  discard_unauthorized_packets:
+    fields: { filter: str, alarm: str }
+  rate_limiting:
+    fields: { device:str, interface:str, rate:str }
+  block_pod_address:
+    fields: { blocked_pod:str, device:str, interface:str }
+

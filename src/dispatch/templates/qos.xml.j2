@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ITResourceOrchestration xmlns="http://modeliosoft/xsddesigner/a22bd60b-ee3d-425c-8618-beb6a854051a/ITResource.xsd"
+                         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <ITResource id="mspl_{{ id }}" orchestrationID="omspl_{{ id }}">
+        <configuration xsi:type="RuleSetConfiguration">
+            <configurationRule>
+                <configurationRuleAction xsi:type="HorseQoSAction">
+                    <qosActionType>LIMIT</qosActionType>
+                    <throughput>{{ throughput }}</throughput>
+                    <unit>{{ unit }}</unit>
+                    <description>{{ description }}</description>
+                </configurationRuleAction>
+                <configurationCondition xsi:type="HorseQoSCondition">
+                    <device>{{ device }}</device>
+                    <output_interface>{{ interface }}</output_interface>
+                </configurationCondition>
+                <Name>QoS_Rule_{{ id }}</Name>
+            </configurationRule>
+            <Name>Conf_{{ id }}</Name>
+        </configuration>
+    </ITResource>
+</ITResourceOrchestration>

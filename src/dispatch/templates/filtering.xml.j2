@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ITResourceOrchestration xmlns="http://modeliosoft/xsddesigner/a22bd60b-ee3d-425c-8618-beb6a854051a/ITResource.xsd"
+                         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <ITResource id="mspl_{{ id }}" orchestrationID="omspl_{{ id }}">
+        <configuration xsi:type="RuleSetConfiguration">
+            <configurationRule>
+                <configurationRuleAction xsi:type="HorseFilteringAction">
+                    <filteringActionType>DROP</filteringActionType>
+                    <description>{{ description }}</description>
+                </configurationRuleAction>
+                <configurationCondition xsi:type="HorseFilteringCondition">
+                    <device>{{ device }}</device>
+                    <output_interface>{{ output_interface }}</output_interface>
+                    <target>{{ target }}</target>
+                </configurationCondition>
+                <Name>Filtering_Rule_{{ id }}</Name>
+            </configurationRule>
+            <Name>Conf_{{ id }}</Name>
+        </configuration>
+    </ITResource>
+</ITResourceOrchestration>
