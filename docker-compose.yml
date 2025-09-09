@@ -1,38 +1,21 @@
+version: "3.8"
+
 services:
   doc-api:
     build: .
     ports:
       - "8001:8000"
     environment:
-      EPEM_ENDPOINT: 10.208.211.11:5002
-      DNS_SERVER: 192.0.1.1
-      MONGO_URI: "mongodb://root:qwerty1234@mongo:27017"
+      EPEM_ENDPOINT: "10.208.211.11:5002"
+      DNS_SERVER: "192.0.1.1"
+      MONGO_URI: "mongodb://root:qwerty1234@mongodb:27017/doc_database?authSource=admin"
       MONGO_DB: "doc_database"
       MONGO_COLL: "mitigation_actions"
     volumes:
       - .:/app
-    depends_on:
-      - mongo
     networks:
       - doc-network
-
-  mongo:
-    image: mongo:4.0
-    container_name: mongodb
-    restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: qwerty1234
-      MONGO_INITDB_DATABASE: doc_database
-    volumes:
-      - mongodb_data:/data/db
-      - ./docker/mongo/:/docker-entrypoint-initdb.d/:ro
-    networks:
-      - doc-network
-
-volumes:
-  mongodb_data:
 
 networks:
   doc-network:
-    driver: bridge
+    external: true
