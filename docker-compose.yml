@@ -2,7 +2,7 @@ services:
   doc-api:
     build: .
     ports:
-      - "8003:8000"
+      - "8001:8000"
     environment:
       EPEM_ENDPOINT: 10.208.211.11:5002
       DNS_SERVER: 192.0.1.1
