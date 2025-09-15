@@ -1,6 +1,17 @@
 version: "3.8"
 
 services:
+  mongodb-doc:
+    image: mongo:4.4
+    container_name: mongodb-doc
+    ports:
+      - "27018:27017"   # <-- host:container (expose as 27018 to avoid conflict)
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: qwerty1234
+    networks:
+      - doc-network
+
   doc-api:
     build: .
     ports:
@@ -8,11 +19,13 @@ services:
     environment:
       EPEM_ENDPOINT: "10.208.211.11:5002"
       DNS_SERVER: "192.0.1.1"
-      MONGO_URI: "mongodb://root:qwerty1234@mongodb:27017/doc_database?authSource=admin"
+      MONGO_URI: "mongodb://root:qwerty1234@mongodb-doc:27017/doc_database?authSource=admin"
       MONGO_DB: "doc_database"
       MONGO_COLL: "mitigation_actions"
     volumes:
       - .:/app
+    depends_on:
+      - mongodb-doc
     networks:
       - doc-network
 
