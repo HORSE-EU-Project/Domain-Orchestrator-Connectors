@@ -441,3 +441,295 @@ def test_upc_validate_smf_integrity(client, httpx_mock, patch_mongo):
     req = httpx_mock.get_requests()[0]
     assert req.url == "http://10.19.2.1/validate_smf_integrity"
     assert req.method == "POST"
+
+
+#### Multi-Domain Tests ####
+
+def test_multi_domain_dns_rate_limiting(client, httpx_mock, patch_mongo):
+    """Test multi-domain execution with both UPC and UMU"""
+    payload = VALID_PAYLOAD_MULTI_DOMAIN_DNS_RATE_LIMITING
+    
+    # Mock UPC response
+    httpx_mock.add_response(
+        method="POST",
+        url="http://10.19.2.1:8001/dns_rate_limiting",
+        status_code=200,
+        json={"message": "UPC: Rate limiting applied"}
+    )
+    
+    # Mock UMU response
+    httpx_mock.add_response(
+        method="POST",
+        url=UMU_URL,
+        status_code=200,
+        text="UMU: Security policy enforced"
+    )
+    
+    resp = client.post("/api/mitigate", json=payload)
+    print(resp.status_code, resp.json())
+    assert resp.status_code == 200
+    
+    body = resp.json()
+    assert body["status"] == "success"
+    assert body["testbed"] == "multi-domain"
+    assert "upstream" in body
+    assert "upc" in body["upstream"]
+    assert "umu" in body["upstream"]
+    assert body["upstream"]["upc"]["status"] == "success"
+    assert body["upstream"]["umu"]["status"] == "success"
+    
+    patch_mongo.assert_called_once()
+    assert len(httpx_mock.get_requests()) == 2
+
+
+def test_multi_domain_single_valid_domain(client, httpx_mock, patch_mongo):
+    """Test multi-domain execution with only one valid domain (UPC)"""
+    payload = VALID_PAYLOAD_MULTI_DOMAIN_BLOCK_IP
+    
+    # Mock UPC response
+    httpx_mock.add_response(
+        method="POST",
+        url="http://10.19.2.1:8001/block_ip_addresses",
+        status_code=200,
+        json={"message": "UPC: IPs blocked successfully"}
+    )
+    
+    resp = client.post("/api/mitigate", json=payload)
+    print(resp.status_code, resp.json())
+    assert resp.status_code == 200
+    
+    body = resp.json()
+    assert body["status"] == "success"
+    assert body["testbed"] == "multi-domain"
+    assert "upstream" in body
+    assert "upc" in body["upstream"]
+    assert body["upstream"]["upc"]["status"] == "success"
+    
+    patch_mongo.assert_called_once()
+    assert len(httpx_mock.get_requests()) == 1
+
+
+def test_multi_domain_with_invalid_domain(client, httpx_mock, patch_mongo):
+    """Test multi-domain execution with one valid and one invalid domain"""
+    payload = {
+        "command": "add",
+        "intent_type": "mitigation",
+        "intent_id": "multi-test-invalid",
+        "target_domain": ["upc", "invalid_domain"],
+        "threat": "attack",
+        "action": {
+            "name": "block_ip_addresses",
+            "intent_id": "block-ip-001",
+            "fields": {
+                "blocked_ips": ["192.168.1.100"]
+            }
+        },
+        "status": "pending",
+        "info": "testing"
+    }
+    
+    # Mock UPC response (valid domain)
+    httpx_mock.add_response(
+        method="POST",
+        url="http://10.19.2.1:8001/block_ip_addresses",
+        status_code=200,
+        json={"message": "UPC: IPs blocked"}
+    )
+    
+    resp = client.post("/api/mitigate", json=payload)
+    print(resp.status_code, resp.json())
+    assert resp.status_code == 200
+    
+    body = resp.json()
+    assert body["status"] == "partial_success"
+    assert "upc" in body["upstream"]
+    assert "invalid_domain" in body["upstream"]
+    assert body["upstream"]["upc"]["status"] == "success"
+    assert body["upstream"]["invalid_domain"]["status"] == "skipped"
+    
+    patch_mongo.assert_called_once()
+    assert len(httpx_mock.get_requests()) == 1
+
+
+def test_multi_domain_dispatch_error(client, httpx_mock, patch_mongo):
+    """Test multi-domain execution where one domain fails"""
+    payload = VALID_PAYLOAD_MULTI_DOMAIN_DNS_RATE_LIMITING
+    
+    # Mock UPC response (success)
+    httpx_mock.add_response(
+        method="POST",
+        url="http://10.19.2.1:8001/dns_rate_limiting",
+        status_code=200,
+        json={"message": "UPC: Success"}
+    )
+    
+    # Mock UMU response (failure)
+    httpx_mock.add_response(
+        method="POST",
+        url=UMU_URL,
+        status_code=500,
+        text="Internal Server Error"
+    )
+    
+    resp = client.post("/api/mitigate", json=payload)
+    print(resp.status_code, resp.json())
+    assert resp.status_code == 200
+    
+    body = resp.json()
+    assert body["status"] == "partial_success"
+    assert body["upstream"]["upc"]["status"] == "success"
+    assert body["upstream"]["umu"]["status"] == "error"
+    
+    patch_mongo.assert_called_once()
+    assert len(httpx_mock.get_requests()) == 2
+
+
+def test_multi_domain_with_cnit(client, httpx_mock, patch_mongo):
+    """Test multi-domain execution with CNIT domain - should skip execution"""
+    payload = VALID_PAYLOAD_MULTI_DOMAIN_WITH_CNIT
+    
+    # Mock UPC response (should execute normally)
+    httpx_mock.add_response(
+        method="POST",
+        url="http://10.19.2.1:8001/block_ip_addresses",
+        status_code=200,
+        json={"message": "UPC: IPs blocked"}
+    )
+    
+    resp = client.post("/api/mitigate", json=payload)
+    print(resp.status_code, resp.json())
+    assert resp.status_code == 200
+    
+    body = resp.json()
+    assert body["status"] == "partial_success"
+    assert "upc" in body["upstream"]
+    assert "cnit" in body["upstream"]
+    assert body["upstream"]["upc"]["status"] == "success"
+    assert body["upstream"]["cnit"]["status"] == "skipped"
+    assert body["upstream"]["cnit"]["message"] == "Domain already handled or not within reachable domains"
+    
+    patch_mongo.assert_called_once()
+    # Only one request to UPC, CNIT should be skipped
+    assert len(httpx_mock.get_requests()) == 1
+
+
+def test_multi_domain_only_cnit(client, httpx_mock, patch_mongo):
+    """Test multi-domain execution with only CNIT domain"""
+    payload = {
+        "command": "add",
+        "intent_type": "mitigation",
+        "intent_id": "cnit-only-001",
+        "target_domain": ["cnit"],
+        "threat": "attack",
+        "action": {
+            "name": "block_ip_addresses",
+            "intent_id": "block-ip-001",
+            "fields": {
+                "blocked_ips": ["192.168.1.100"]
+            }
+        },
+        "status": "pending",
+        "info": "testing"
+    }
+    
+    resp = client.post("/api/mitigate", json=payload)
+    print(resp.status_code, resp.json())
+    assert resp.status_code == 200
+    
+    body = resp.json()
+    assert body["status"] == "error"  # All domains failed/skipped
+    assert "cnit" in body["upstream"]
+    assert body["upstream"]["cnit"]["status"] == "skipped"
+    assert body["upstream"]["cnit"]["message"] == "Domain already handled or not within reachable domains"
+    
+    patch_mongo.assert_called_once()
+    # No HTTP requests should be made since CNIT is skipped
+    assert len(httpx_mock.get_requests()) == 0
+
+
+def test_single_element_list_cnit_normalization(client, httpx_mock, patch_mongo):
+    """Test that single-element list ['CNIT'] is normalized to 'CNIT' and handled correctly"""
+    payload = VALID_PAYLOAD_SINGLE_ELEMENT_LIST_CNIT
+    
+    resp = client.post("/api/mitigate", json=payload)
+    print(resp.status_code, resp.json())
+    assert resp.status_code == 200
+    
+    body = resp.json()
+    assert body["status"] == "success"
+    assert body["testbed"] == "cnit"
+    assert "cnit" in body["upstream"]
+    assert body["upstream"]["cnit"]["status"] == "skipped"
+    assert body["upstream"]["cnit"]["message"] == "Domain already handled or not within reachable domains"
+    
+    patch_mongo.assert_called_once()
+    # No HTTP requests should be made since CNIT is skipped
+    assert len(httpx_mock.get_requests()) == 0
+
+
+def test_single_string_cnit(client, httpx_mock, patch_mongo):
+    """Test that single string 'CNIT' is handled correctly"""
+    payload = VALID_PAYLOAD_SINGLE_STRING_CNIT
+    
+    resp = client.post("/api/mitigate", json=payload)
+    print(resp.status_code, resp.json())
+    assert resp.status_code == 200
+    
+    body = resp.json()
+    assert body["status"] == "success"
+    assert body["testbed"] == "cnit"
+    assert "cnit" in body["upstream"]
+    assert body["upstream"]["cnit"]["status"] == "skipped"
+    assert body["upstream"]["cnit"]["message"] == "Domain already handled or not within reachable domains"
+    
+    patch_mongo.assert_called_once()
+    # No HTTP requests should be made since CNIT is skipped
+    assert len(httpx_mock.get_requests()) == 0
+
+
+def test_single_element_list_valid_domain(client, httpx_mock, patch_mongo):
+    """Test that single-element list with valid domain ['upc'] is normalized and executes normally"""
+    payload = {
+        "command": "add",
+        "intent_type": "mitigation",
+        "intent_id": "single-list-upc-001",
+        "target_domain": ["upc"],  # Single-element list
+        "threat": "attack",
+        "action": {
+            "name": "block_ip_addresses",
+            "intent_id": "block-ip-001",
+            "fields": {
+                "blocked_ips": ["192.168.1.100"]
+            }
+        },
+        "status": "pending",
+        "info": "testing"
+    }
+    
+    # Mock UPC response
+    httpx_mock.add_response(
+        method="POST",
+        url="http://10.19.2.1:8001/block_ip_addresses",
+        status_code=200,
+        json={"message": "UPC: IPs blocked"}
+    )
+    
+    resp = client.post("/api/mitigate", json=payload)
+    print(resp.status_code, resp.json())
+    assert resp.status_code == 200
+    
+    body = resp.json()
+    assert body["status"] == "success"
+    # After normalization, it should be treated as single domain
+    assert body["testbed"] == "upc"
+    
+    patch_mongo.assert_called_once()
+    # Should make one HTTP request
+    assert len(httpx_mock.get_requests()) == 1
+
+
+
+
+
+
+

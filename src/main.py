@@ -83,7 +83,74 @@ async def mitigate(req: MitigationActionRequest):
     except WriteError as we:
         logger.error(we.details)
 
-    # Forward to testbed, and await reply
+    # Handle multi-domain execution
+    if isinstance(req.target_domain, list):
+        from src.config_loader import TESTBED_CFG, TestBedEnum
+        results = {}
+        failed_domains = []
+        
+        for domain in req.target_domain:
+            domain_lower = domain.lower()
+            
+            # Special handling for CNIT domain
+            if domain_lower == "cnit":
+                logger.info(f"CNIT domain detected - skipping execution")
+                results[domain] = {
+                    "status": "skipped",
+                    "message": "Domain already handled or not within reachable domains"
+                }
+                continue
+            
+            # Check if domain is valid (exists in config)
+            if domain_lower not in TESTBED_CFG:
+                logger.warning(f"Skipping invalid domain: {domain}")
+                results[domain] = {"status": "skipped", "reason": "Invalid domain"}
+                continue
+            
+            # Create a copy of the request for this specific domain
+            domain_req = req.model_copy()
+            # Convert string to TestBedEnum
+            domain_req.testbed = TestBedEnum[domain_lower.upper()]
+            domain_req.message_type = TESTBED_CFG[domain_lower]["message_type"]
+            
+            # Attempt dispatch to this domain
+            try:
+                upstream_reply = await dispatch(domain_req)
+                results[domain] = {"status": "success", "response": upstream_reply}
+            except DispatchError as e:
+                logger.error(f"Failed to dispatch to {domain}: {e}")
+                results[domain] = {"status": "error", "reason": str(e)}
+                failed_domains.append(domain)
+            except Exception as e:
+                logger.error(f"Unexpected error dispatching to {domain}: {e}")
+                results[domain] = {"status": "error", "reason": str(e)}
+                failed_domains.append(domain)
+        
+        # Return aggregated response
+        overall_status = "partial_success" if failed_domains and len(failed_domains) < len(req.target_domain) else (
+            "success" if not failed_domains else "error"
+        )
+        
+        return MitigationActionResponse(
+            status=overall_status,
+            testbed="multi-domain",
+            intent_id=req.intent_id,
+            message=f"Multi-domain execution completed. Success: {len(results) - len(failed_domains)}/{len(req.target_domain)}",
+            upstream=results,
+        )
+
+    # Single domain execution (original behavior)
+    # Check if target_domain is CNIT (single domain string)
+    if isinstance(req.target_domain, str) and req.target_domain.lower() == "cnit":
+        logger.info(f"CNIT domain detected in single domain mode - skipping execution")
+        return MitigationActionResponse(
+            status="success",
+            testbed="cnit",
+            intent_id=req.intent_id,
+            message="Domain already handled or not within reachable domains",
+            upstream={"cnit": {"status": "skipped", "message": "Domain already handled or not within reachable domains"}},
+        )
+    
     try:
         upstream_reply = await dispatch(req)
     except DispatchError as e:

@@ -1,6 +1,17 @@
 version: "3.8"
 
 services:
+  mongodb:
+    image: mongo:4.4
+    container_name: doc-mongodb
+    ports:
+      - "27018:27017"  # Map host port 27018 to container port 27017
+    volumes:
+      - mongodb_data:/data/db
+      - ./docker/mongo/01_create_collections.js:/docker-entrypoint-initdb.d/01_create_collections.js
+    networks:
+      - doc_network
+
   doc-api:
     build: .
     container_name: doc-api
@@ -9,15 +20,20 @@ services:
     environment:
       EPEM_ENDPOINT: "10.208.211.11:5002"
       DNS_SERVER: "192.0.1.1"
-      # Connect to the existing MongoDB container running on the host
-      MONGO_URI: "mongodb://localhost:27017/doc_database"
+      # Connect to the MongoDB service in this compose file
+      MONGO_URI: "mongodb://mongodb:27017/doc_database"
       MONGO_DB: "doc_database"
       MONGO_COLL: "mitigation_actions"
     volumes:
       - .:/app
+    depends_on:
+      - mongodb
     networks:
-      - bridge  # connect to the existing 'bridge' network
+      - doc_network
+
+volumes:
+  mongodb_data:
 
 networks:
-  bridge:
-    external: true
+  doc_network:
+    driver: bridge
