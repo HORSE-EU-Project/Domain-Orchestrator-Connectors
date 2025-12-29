@@ -64,8 +64,21 @@ class MitigationActionRequest(BaseModel):
         if isinstance(self.target_domain, list) and len(self.target_domain) == 1:
             self.target_domain = self.target_domain[0]
         
+        # If target_domain is a string (single domain), convert to testbed
+        if isinstance(self.target_domain, str) and self.target_domain:
+            domain_lower = self.target_domain.lower()
+            # Special handling for CNIT - don't validate or set testbed
+            if domain_lower != 'cnit':
+                # Validate it's a valid testbed
+                if domain_lower not in TESTBED_CFG:
+                    raise ValueError(
+                        f"Invalid domain '{self.target_domain}'. Valid domains: {list(TESTBED_CFG.keys())}"
+                    )
+                # Convert string to TestBedEnum and set message_type
+                self.testbed = TestBedEnum[domain_lower.upper()]
+                self.message_type = TESTBED_CFG[domain_lower]["message_type"]
         # If target_domain is a list (multi-domain mode)
-        if isinstance(self.target_domain, list):
+        elif isinstance(self.target_domain, list):
             valid_testbeds = set(TESTBED_CFG.keys())
             # Allow 'cnit' as a special domain that will be handled separately
             invalid_domains = [d for d in self.target_domain if d.lower() not in valid_testbeds and d.lower() != 'cnit']
@@ -76,10 +89,10 @@ class MitigationActionRequest(BaseModel):
             # For multi-domain, we don't set message_type here
             # as it will be determined per-domain during dispatch
         elif self.testbed:
-            # Single testbed mode
+            # Single testbed mode (legacy - testbed field directly specified)
             self.message_type = TESTBED_CFG[self.testbed.value]["message_type"]
         else:
-            raise ValueError("Either 'testbed' or 'target_domain' (as list) field must be provided")
+            raise ValueError("Either 'testbed' or 'target_domain' field must be provided")
 
     def validate_action_fields(cls, action: ActionObject) -> ActionObject:
         required_spec = ACTION_SCHEMAS[action.name]  # <-- use .name
