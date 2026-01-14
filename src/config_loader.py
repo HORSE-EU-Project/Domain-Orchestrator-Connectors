@@ -13,15 +13,17 @@ def _load_yaml(path: pathlib.Path = _DEFAULT_YAML) -> Dict[str, Any]:
 
 
 def reload_yaml(path: pathlib.Path = _DEFAULT_YAML):
-    global _SPEC, _TESTBED_SPEC, _ACTION_SPEC, ACTION_SCHEMAS, TESTBED_CFG
+    global _SPEC, _TESTBED_SPEC, _ACTION_SPEC, ACTION_SCHEMAS, TESTBED_CFG, DOMAIN_ROUTING
     _SPEC = _load_yaml(path)
     _TESTBED_SPEC = _SPEC["testbeds"]
     _ACTION_SPEC = _SPEC["actions"]
     ACTION_SCHEMAS = {n: d["required_fields"] for n, d in _ACTION_SPEC.items()}
+    DOMAIN_ROUTING = _SPEC.get("domain_routing", {})
 
 
 _SPEC = _load_yaml()
 DEFAULTS = _SPEC.get("defaults", {})
+DOMAIN_ROUTING = _SPEC.get("domain_routing", {})
 _TESTBED_SPEC = _SPEC['testbeds']
 _ACTION_SPEC = _SPEC['actions']
 

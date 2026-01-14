@@ -1,4 +1,14 @@
 #Available TestBeds
+
+# Domain Routing Configuration
+# Identifies which domain this DOC instance is deployed in and how to reach other DOC instances
+domain_routing:
+  current_domain: upc  # Options: upc, umu, cnit
+  doc_instances:
+    upc: "http://10.19.2.19:8001"  # URL of DOC deployed in UPC domain
+    umu: "http://10.208.11.70:8001"  # URL of DOC deployed in UMU domain
+    cnit: "http://192.168.130.62:8001"  # URL of DOC deployed in CNIT domain
+
 defaults:
   qos_units:
     rps: rps

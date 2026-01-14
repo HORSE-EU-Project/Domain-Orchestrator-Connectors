@@ -9,12 +9,13 @@ from fastapi.exceptions import RequestValidationError, HTTPException
 from fastapi.responses import JSONResponse
 from pymongo.errors import WriteError
 
-from src.config_loader import reload_yaml
+from src.config_loader import reload_yaml, DOMAIN_ROUTING
 from src.model.MitigationActionRequest import MitigationActionRequest
 from src.model.MitigationActionResponse import MitigationActionResponse
 from src.dispatch.http import dispatch, DispatchError
 from src.utils import mongo
 from bson import json_util
+import httpx
 
 logger = logging.getLogger("uvicorn.error")
 app = FastAPI(
@@ -25,6 +26,29 @@ app = FastAPI(
 )
 
 start_time = time.time()
+
+
+async def forward_to_doc(target_domain: str, payload: dict) -> dict:
+    """
+    Forward mitigation request to another DOC instance in a different domain.
+    """
+    doc_url = DOMAIN_ROUTING.get("doc_instances", {}).get(target_domain.lower())
+    if not doc_url:
+        raise ValueError(f"No DOC instance configured for domain '{target_domain}'")
+    
+    endpoint = f"{doc_url}/api/mitigate"
+    logger.info(f"Forwarding request to DOC in '{target_domain}' at {endpoint}")
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(endpoint, json=payload, timeout=30)
+        
+        if not resp.is_success:
+            raise DispatchError(f"DOC at {endpoint} responded {resp.status_code}: {resp.text}")
+        
+        return resp.json()
+    except httpx.RequestError as e:
+        raise DispatchError(f"Failed to forward to DOC at {endpoint}: {str(e)}")
 
 
 @app.exception_handler(RequestValidationError)
@@ -88,6 +112,7 @@ async def mitigate(req: MitigationActionRequest):
         from src.config_loader import TESTBED_CFG, TestBedEnum
         results = {}
         failed_domains = []
+        current_domain = DOMAIN_ROUTING.get("current_domain", "").lower()
         
         for domain in req.target_domain:
             domain_lower = domain.lower()
@@ -96,6 +121,26 @@ async def mitigate(req: MitigationActionRequest):
             if domain_lower not in TESTBED_CFG:
                 logger.warning(f"Skipping invalid domain: {domain}")
                 results[domain] = {"status": "skipped", "reason": "Invalid domain"}
+                continue
+            
+            # Check if this domain should be forwarded to another DOC instance
+            if current_domain and domain_lower != current_domain:
+                logger.info(f"Forwarding domain '{domain}' to remote DOC instance")
+                try:
+                    # Create payload for forwarding with single target_domain
+                    forward_payload = req.model_dump()
+                    forward_payload["target_domain"] = domain  # Single domain for remote DOC
+                    
+                    forwarded_response = await forward_to_doc(domain_lower, forward_payload)
+                    results[domain] = {"status": "forwarded", "response": forwarded_response}
+                except DispatchError as e:
+                    logger.error(f"Failed to forward to DOC in {domain}: {e}")
+                    results[domain] = {"status": "error", "reason": f"Forwarding failed: {str(e)}"}
+                    failed_domains.append(domain)
+                except Exception as e:
+                    logger.error(f"Unexpected error forwarding to {domain}: {e}")
+                    results[domain] = {"status": "error", "reason": str(e)}
+                    failed_domains.append(domain)
                 continue
             
             # Create a copy of the request for this specific domain
@@ -131,6 +176,31 @@ async def mitigate(req: MitigationActionRequest):
         )
 
     # Single domain execution (original behavior)
+    current_domain = DOMAIN_ROUTING.get("current_domain", "").lower()
+    target_domain = req.target_domain.lower() if isinstance(req.target_domain, str) else ""
+    
+    # Check if we need to forward to another DOC instance
+    if current_domain and target_domain and target_domain != current_domain:
+        logger.info(f"Forwarding single-domain request to DOC in '{target_domain}'")
+        try:
+            forward_payload = req.model_dump()
+            forwarded_response = await forward_to_doc(target_domain, forward_payload)
+            
+            return MitigationActionResponse(
+                status="success",
+                testbed=target_domain,
+                intent_id=req.intent_id,
+                message="Action forwarded to remote DOC instance.",
+                upstream={"forwarded": forwarded_response},
+            )
+        except DispatchError as e:
+            logger.error(f"Failed to forward to DOC in {target_domain}: {e}")
+            raise HTTPException(status_code=502, detail=str(e))
+        except Exception as e:
+            logger.error(f"Unexpected error forwarding to {target_domain}: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    # Dispatch locally to the testbed in this domain
     try:
         upstream_reply = await dispatch(req)
     except DispatchError as e:
