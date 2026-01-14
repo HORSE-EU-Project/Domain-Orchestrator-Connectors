@@ -14,8 +14,10 @@ def resolve_endpoint(testbed: str, action: str) -> str:
     cfg = TESTBED_CFG[testbed]
     # per-action mapping (UPC style)
     if "endpoints" in cfg:
+        # Convert action to lowercase for case-insensitive lookup
+        action_lower = action.lower()
         try:
-            return cfg["endpoints"][action]
+            return cfg["endpoints"][action_lower]
         except KeyError:
             raise ValueError(
                 f"Action '{action}' not allowed on test-bed '{testbed}'. "
@@ -31,9 +33,17 @@ async def dispatch(req_model):
     2. POST to the correct endpoint
     3. Return JSON/text from the test-bed
     4. Raise DispatchError on non-2xx
+    
+    Special case: CNIT passthrough returns immediately without HTTP call
     """
     builder = BUILDER_REGISTRY[req_model.message_type]
     body_bytes, headers = builder(req_model)
+    
+    # CNIT passthrough - return the built response directly without HTTP call
+    if req_model.message_type == "cnit_passthrough":
+        import json
+        return json.loads(body_bytes.decode("utf-8"))
+    
     url = resolve_endpoint(req_model.testbed.value, req_model.action.name)
 
     try:

@@ -12,7 +12,10 @@ testbeds:
     message_type: umu_xml
     allowed_actions:
       - dns_rate_limiting
+      - dns_rate_limit
       - rate_limiting
+      - router_rate_limiting
+      - router_rate_limit
       - block_pod_address
   upc:
     message_type: upc_json
@@ -20,12 +23,17 @@ testbeds:
       execute_test_1: "http://10.19.2.1:8001/execute_test"
       execute_test_2: "http://10.19.2.1:8001/execute_test"
       dns_rate_limiting: "http://10.19.2.1:8001/dns_rate_limiting"
+      dns_rate_limit: "http://10.19.2.1:8001/dns_rate_limiting"
       router_rate_limiting: "http://10.19.2.1:8001/router_rate_limiting"
+      router_rate_limit: "http://10.19.2.1:8001/router_rate_limiting"
       block_ip_addresses: "http://10.19.2.1:8001/block_ip_addresses"
       block_ues_multidomain: "http://10.19.2.1:8001/block_ues_multidomain"
       define_dns_servers: "http://10.19.2.1:8001/define_dns_servers"
       firewall_pfcp_requests: "http://10.19.2.1:8001/firewall_pfcp_requests"
       validate_smf_integrity: "http://10.19.2.1:8001/validate_smf_integrity"
+  cnit:
+    message_type: cnit_passthrough
+    base_url: "http://localhost:9999/cnit"
 
 actions:
   execute_test_1:
@@ -34,7 +42,11 @@ actions:
     fields: { test_id: int|str , modules: list }
   dns_rate_limiting:
     fields: { rate: int|str , duration: int|str|None , source_ip_filter: list }
+  dns_rate_limit:
+    fields: { rate: int|str , duration: int|str|None , source_ip_filter: list }
   router_rate_limiting:
+    fields: { device: str, rate: int|str, duration: int|str }
+  router_rate_limit:
     fields: { device: str, rate: int|str, duration: int|str }
   block_ip_addresses:
     fields: { blocked_ips: list }

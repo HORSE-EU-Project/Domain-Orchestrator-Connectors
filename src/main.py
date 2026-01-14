@@ -92,15 +92,6 @@ async def mitigate(req: MitigationActionRequest):
         for domain in req.target_domain:
             domain_lower = domain.lower()
             
-            # Special handling for CNIT domain
-            if domain_lower == "cnit":
-                logger.info(f"CNIT domain detected - skipping execution")
-                results[domain] = {
-                    "status": "skipped",
-                    "message": "Domain already handled or not within reachable domains"
-                }
-                continue
-            
             # Check if domain is valid (exists in config)
             if domain_lower not in TESTBED_CFG:
                 logger.warning(f"Skipping invalid domain: {domain}")
@@ -140,17 +131,6 @@ async def mitigate(req: MitigationActionRequest):
         )
 
     # Single domain execution (original behavior)
-    # Check if target_domain is CNIT (single domain string)
-    if isinstance(req.target_domain, str) and req.target_domain.lower() == "cnit":
-        logger.info(f"CNIT domain detected in single domain mode - skipping execution")
-        return MitigationActionResponse(
-            status="success",
-            testbed="cnit",
-            intent_id=req.intent_id,
-            message="Domain already handled or not within reachable domains",
-            upstream={"cnit": {"status": "skipped", "message": "Domain already handled or not within reachable domains"}},
-        )
-    
     try:
         upstream_reply = await dispatch(req)
     except DispatchError as e:

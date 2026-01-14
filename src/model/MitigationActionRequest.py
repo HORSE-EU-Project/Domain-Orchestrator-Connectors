@@ -67,21 +67,18 @@ class MitigationActionRequest(BaseModel):
         # If target_domain is a string (single domain), convert to testbed
         if isinstance(self.target_domain, str) and self.target_domain:
             domain_lower = self.target_domain.lower()
-            # Special handling for CNIT - don't validate or set testbed
-            if domain_lower != 'cnit':
-                # Validate it's a valid testbed
-                if domain_lower not in TESTBED_CFG:
-                    raise ValueError(
-                        f"Invalid domain '{self.target_domain}'. Valid domains: {list(TESTBED_CFG.keys())}"
-                    )
-                # Convert string to TestBedEnum and set message_type
-                self.testbed = TestBedEnum[domain_lower.upper()]
-                self.message_type = TESTBED_CFG[domain_lower]["message_type"]
+            # Validate it's a valid testbed
+            if domain_lower not in TESTBED_CFG:
+                raise ValueError(
+                    f"Invalid domain '{self.target_domain}'. Valid domains: {list(TESTBED_CFG.keys())}"
+                )
+            # Convert string to TestBedEnum and set message_type
+            self.testbed = TestBedEnum[domain_lower.upper()]
+            self.message_type = TESTBED_CFG[domain_lower]["message_type"]
         # If target_domain is a list (multi-domain mode)
         elif isinstance(self.target_domain, list):
             valid_testbeds = set(TESTBED_CFG.keys())
-            # Allow 'cnit' as a special domain that will be handled separately
-            invalid_domains = [d for d in self.target_domain if d.lower() not in valid_testbeds and d.lower() != 'cnit']
+            invalid_domains = [d for d in self.target_domain if d.lower() not in valid_testbeds]
             if invalid_domains:
                 raise ValueError(
                     f"Invalid domain(s) {invalid_domains}. Valid domains: {list(valid_testbeds)}"
@@ -95,7 +92,9 @@ class MitigationActionRequest(BaseModel):
             raise ValueError("Either 'testbed' or 'target_domain' field must be provided")
 
     def validate_action_fields(cls, action: ActionObject) -> ActionObject:
-        required_spec = ACTION_SCHEMAS[action.name]  # <-- use .name
+        # Convert action name to lowercase for case-insensitive lookup
+        action_name_lower = action.name.lower()
+        required_spec = ACTION_SCHEMAS[action_name_lower]  # <-- use .name
         fields = action.fields
 
         missing = [
