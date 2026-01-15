@@ -16,6 +16,41 @@ This system adopts a clean **modular architecture** with the following component
 
 ---
 
+## 🌐 Multi-Domain Support
+
+The Domain-Orchestrator-Connector (DOC) supports **multi-domain deployments**, enabling mitigation actions to be enforced across distributed 5G/6G network domains. This is achieved by deploying separate DOC instances in each domain, with each instance aware of its domain identity and the locations of other DOC instances.
+
+### How It Works
+
+When a mitigation action arrives at a DOC instance:
+
+1. **Domain Check**: The DOC examines whether the action is targeted for its own domain or a different domain
+2. **Local Enforcement**: If the action targets the current domain, the DOC translates the action using the communication protocol configured for the local infrastructure and enforces the mitigation/prevention action directly
+3. **Cross-Domain Forwarding**: If the action targets another domain, the DOC propagates the mitigation/prevention action to the DOC instance deployed in that target domain, which then handles enforcement using its local infrastructure protocol
+
+### Configuration Prerequisite
+
+For multi-domain functionality to work correctly, **you must configure the domain identity** in the configuration file:
+
+**File:** `./config/config.yaml`
+
+```yaml
+domain_routing:
+  current_domain: upc  # Options: upc, umu, cnit
+  doc_instances:
+    upc: "http://10.19.2.19:8001"  # URL of DOC deployed in UPC domain
+    umu: "http://10.208.11.70:8001"  # URL of DOC deployed in UMU domain
+    cnit: "http://192.168.130.62:8001"  # URL of DOC deployed in CNIT domain
+```
+
+- Set `current_domain` to match the domain where this DOC instance is deployed
+- Ensure all DOC instances have the correct URLs configured for cross-domain communication
+- Each domain can use different communication protocols (XML, JSON, etc.) as defined in the testbed configurations
+
+This architecture enables seamless orchestration of security mitigations across federated network infrastructures while respecting the autonomy and protocols of each domain.
+
+---
+
 ## 🚀 Quick Start
 
 To run the system locally:
