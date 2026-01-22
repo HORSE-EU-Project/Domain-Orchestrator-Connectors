@@ -5,7 +5,7 @@ services:
     image: mongo:4.4
     container_name: doc-mongodb
     ports:
-      - "27018:27017"  # Map host port 27018 to container port 27017
+      - "${MONGO_HOST_PORT:-27018}:27017"  # Map host port to container port 27017
     volumes:
       - mongodb_data:/data/db
       - ./docker/mongo/01_create_collections.js:/docker-entrypoint-initdb.d/01_create_collections.js
@@ -16,14 +16,18 @@ services:
     build: .
     container_name: doc-api
     ports:
-      - "8001:8000"
+      - "${DOC_API_PORT:-8001}:8000"
     environment:
-      EPEM_ENDPOINT: "10.208.211.11:5002"
-      DNS_SERVER: "192.0.1.1"
+      CURRENT_TESTBED: "${CURRENT_TESTBED}"
+      DOC_URL_UPC: "${DOC_URL_UPC}"
+      DOC_URL_UMU: "${DOC_URL_UMU}"
+      DOC_URL_CNIT: "${DOC_URL_CNIT}"
+      EPEM_ENDPOINT: "${EPEM_ENDPOINT:-10.208.211.11:5002}"
+      DNS_SERVER: "${DNS_SERVER:-192.0.1.1}"
       # Connect to the MongoDB service in this compose file
-      MONGO_URI: "mongodb://mongodb:27017/doc_database"
-      MONGO_DB: "doc_database"
-      MONGO_COLL: "mitigation_actions"
+      MONGO_URI: "${MONGO_URI:-mongodb://mongodb:27017/doc_database}"
+      MONGO_DB: "${MONGO_DB:-doc_database}"
+      MONGO_COLL: "${MONGO_COLL:-mitigation_actions}"
     volumes:
       - .:/app
     depends_on:
