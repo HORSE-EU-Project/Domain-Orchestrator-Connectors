@@ -43,10 +43,25 @@ if [ -f .env ]; then
         echo "CURRENT_TESTBED=${TESTBED}" >> .env
     fi
     
-    echo -e "${GREEN}✓ Configuration updated${NC}"
+    echo -e "${GREEN}✓ .env updated${NC}"
 else
     echo -e "${RED}✗ .env file not found!${NC}"
     exit 1
+fi
+
+# Update current_domain in config.yaml
+if [ -f config/config.yaml ]; then
+    echo -e "${BLUE}→ Updating config.yaml with current_domain: ${TESTBED}${NC}"
+    
+    # Create backup
+    cp config/config.yaml config/config.yaml.bak
+    
+    # Update current_domain in domain_routing section
+    sed -i "s/^  current_domain:.*/  current_domain: ${TESTBED}  # Updated by deploy.sh/" config/config.yaml
+    
+    echo -e "${GREEN}✓ config.yaml updated (backup: config.yaml.bak)${NC}"
+else
+    echo -e "${YELLOW}⚠ config/config.yaml not found, skipping${NC}"
 fi
 
 # Deploy with docker-compose

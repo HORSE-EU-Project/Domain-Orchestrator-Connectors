@@ -1,4 +1,5 @@
 import enum
+import os
 import pathlib
 from typing import Any, Dict
 
@@ -19,11 +20,20 @@ def reload_yaml(path: pathlib.Path = _DEFAULT_YAML):
     _ACTION_SPEC = _SPEC["actions"]
     ACTION_SCHEMAS = {n: d["required_fields"] for n, d in _ACTION_SPEC.items()}
     DOMAIN_ROUTING = _SPEC.get("domain_routing", {})
+    
+    # Override current_domain from environment variable if set
+    if "CURRENT_TESTBED" in os.environ:
+        DOMAIN_ROUTING["current_domain"] = os.environ["CURRENT_TESTBED"].lower()
 
 
 _SPEC = _load_yaml()
 DEFAULTS = _SPEC.get("defaults", {})
 DOMAIN_ROUTING = _SPEC.get("domain_routing", {})
+
+# Override current_domain from environment variable if set
+if "CURRENT_TESTBED" in os.environ:
+    DOMAIN_ROUTING["current_domain"] = os.environ["CURRENT_TESTBED"].lower()
+
 _TESTBED_SPEC = _SPEC['testbeds']
 _ACTION_SPEC = _SPEC['actions']
 
