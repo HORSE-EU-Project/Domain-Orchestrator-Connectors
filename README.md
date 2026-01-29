@@ -51,15 +51,122 @@ This architecture enables seamless orchestration of security mitigations across 
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Deployment
 
-To run the system locally:
+The Domain-Orchestrator-Connector provides two deployment methods: an **automated deployment script** for streamlined setup and **manual Docker Compose** for custom configurations.
+
+### Prerequisites
+
+Before deploying, ensure you have:
+- Docker and Docker Compose installed
+- A `.env` file in the project root (see `.env.example` or default values in `docker-compose.yml`)
+- Properly configured `config/config.yaml` file
+
+### Method 1: Automated Deployment (Recommended)
+
+The `deploy.sh` script automates the deployment process by:
+1. Validating and setting the target testbed
+2. Updating the `.env` file with `CURRENT_TESTBED`
+3. Updating `config/config.yaml` with `current_domain`
+4. Building and starting Docker containers
+5. Providing deployment status and access information
+
+#### Usage
 
 ```bash
-docker-compose up --build
+./deploy.sh [TESTBED]
 ```
 
-The API documentation will be available at: http://localhost:8000/docs
+**Parameters:**
+- `TESTBED` (optional): Target testbed - `upc`, `umu`, or `cnit`. Defaults to `upc` if not specified.
+
+#### Examples
+
+**Deploy to UPC domain (default):**
+```bash
+./deploy.sh
+```
+or
+```bash
+./deploy.sh upc
+```
+
+**Deploy to UMU domain:**
+```bash
+./deploy.sh umu
+```
+
+**Deploy to CNIT domain:**
+```bash
+./deploy.sh cnit
+```
+
+#### What the Script Does
+
+When you run `./deploy.sh umu`, for example:
+1. ✓ Sets testbed to `umu`
+2. → Updates `.env` file: `CURRENT_TESTBED=umu`
+3. → Updates `config/config.yaml`: `current_domain: umu`
+4. → Builds Docker images and starts containers
+5. ✓ Displays success message with service URLs
+
+**Successful deployment output:**
+```
+╔════════════════════════════════════════╗
+║  DOC Deployment Successful! 🚀         ║
+╚════════════════════════════════════════╝
+
+Testbed: umu
+API Docs: http://localhost:8001/docs
+Health Check: http://localhost:8001/ping
+
+To view logs: docker-compose logs -f
+To stop: docker-compose down
+```
+
+### Method 2: Manual Docker Compose Deployment
+
+For custom deployments or when you need more control:
+
+#### Step 1: Configure Environment
+Edit `.env` file to set your testbed and service URLs:
+```bash
+CURRENT_TESTBED=upc  # Options: upc, umu, cnit
+DOC_API_PORT=8001
+MONGO_HOST_PORT=27018
+# ... other configuration
+```
+
+#### Step 2: Configure Domain Routing
+Edit `config/config.yaml` to set the current domain:
+```yaml
+domain_routing:
+  current_domain: upc  # Must match CURRENT_TESTBED in .env
+  doc_instances:
+    upc: "http://10.19.2.19:8001"
+    umu: "http://10.208.11.70:8001"
+    cnit: "http://192.168.130.62:8001"
+```
+
+#### Step 3: Deploy
+```bash
+docker-compose up --build -d
+```
+
+### Post-Deployment
+
+Once deployed, access the service:
+- **API Documentation**: `http://localhost:8001/docs` (interactive Swagger UI)
+- **Health Check**: `http://localhost:8001/ping`
+- **View Logs**: `docker-compose logs -f`
+- **Stop Services**: `docker-compose down`
+- **Restart**: `docker-compose restart`
+
+### Deployment Notes
+
+⚠️ **Important**: The `CURRENT_TESTBED` in `.env` and `current_domain` in `config/config.yaml` must match for proper multi-domain routing.
+
+💡 **Tip**: Use the automated deployment script (`deploy.sh`) to avoid manual configuration errors. It ensures consistency between configuration files.
 
 ---
 
