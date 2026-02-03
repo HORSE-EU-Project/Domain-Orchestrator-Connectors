@@ -39,12 +39,18 @@ async def dispatch(req_model):
     builder = BUILDER_REGISTRY[req_model.message_type]
     body_bytes, headers = builder(req_model)
     
+    # Log the mitigation message before sending
+    logger.info(f"Dispatching mitigation action: testbed={req_model.testbed.value}, action={req_model.action.name}, intent_id={req_model.intent_id}")
+    logger.debug(f"Payload: {body_bytes.decode('utf-8')}")
+    logger.debug(f"Headers: {headers}")
+    
     # CNIT passthrough - return the built response directly without HTTP call
     if req_model.message_type == "cnit_passthrough":
         import json
         return json.loads(body_bytes.decode("utf-8"))
     
     url = resolve_endpoint(req_model.testbed.value, req_model.action.name)
+    logger.info(f"Sending mitigation request to: {url}")
 
     try:
         async with httpx.AsyncClient() as client:

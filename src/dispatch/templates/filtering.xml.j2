@@ -1,21 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ITResourceOrchestration xmlns="http://modeliosoft/xsddesigner/a22bd60b-ee3d-425c-8618-beb6a854051a/ITResource.xsd"
-                         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                         id="omspl_{{ id }}"
+                         xsi:schemaLocation="http://modeliosoft/xsddesigner/a22bd60b-ee3d-425c-8618-beb6a854051a/ITResource.xsd mspl.xsd">
     <ITResource id="mspl_{{ id }}" orchestrationID="omspl_{{ id }}">
         <configuration xsi:type="RuleSetConfiguration">
+            <capability>
+                <Name>Filtering_L3</Name>
+            </capability>
             <configurationRule>
                 <configurationRuleAction xsi:type="HorseFilteringAction">
                     <filteringActionType>DROP</filteringActionType>
+                    <id>{{ id }}</id>
                     <description>{{ description }}</description>
                 </configurationRuleAction>
                 <configurationCondition xsi:type="HorseFilteringCondition">
-                    <device>{{ device }}</device>
-                    <output_interface>{{ output_interface }}</output_interface>
                     <target>{{ target }}</target>
+                    <input_interface>{{ input_interface }}</input_interface>
+                    <output_interface>{{ output_interface }}</output_interface>
+                    <device>{{ device }}</device>
                 </configurationCondition>
                 <Name>Filtering_Rule_{{ id }}</Name>
             </configurationRule>
             <Name>Conf_{{ id }}</Name>
         </configuration>
+        <priority>1000</priority>
+        <enablerCandidates>
+            <enabler>ceos</enabler>
+        </enablerCandidates>
     </ITResource>
 </ITResourceOrchestration>

@@ -1,7 +1,10 @@
 import pathlib
+import logging
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from src.config_loader import DEFAULTS, ACTION_SCHEMAS
+
+logger = logging.getLogger("uvicorn.error")
 
 TEMPLATE_DIR = pathlib.Path(__file__).parent.parent / "templates"
 
@@ -45,6 +48,7 @@ def build_umu_xml(req):
         ctx = {
             "id": req.action.intent_id,
             "device": flds["device"],
+            "input_interface": flds.get("input_interface", "*"),
             "output_interface": flds["interface"],
             "target": flds["blocked_pod"],
             "description": f"Block pod {flds['blocked_pod']} at {flds['device']}",
@@ -56,4 +60,9 @@ def build_umu_xml(req):
     xml = env.get_template(tpl).render(**ctx)
     if "{{" in xml:
         raise ValueError("Unresolved placeholders in generated XML")
+    
+    # Log the complete XML payload for UMU testbed
+    logger.info(f"Generated XML for UMU testbed (action: {name}, intent_id: {req.action.intent_id}):")
+    logger.info(f"\n{xml}")
+    
     return xml.encode(), {"Content-Type": "application/xml"}
