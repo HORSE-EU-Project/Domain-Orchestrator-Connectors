@@ -106,6 +106,8 @@ async def mitigate(req: MitigationActionRequest, request: Request):
         callback_endpoint = RTR_API_CFG.get("callback_endpoint", "/update_action_status")
         req.callback_url = f"http://{client_host}:{client_port}{callback_endpoint}"
         logger.info(f"Auto-populated callback_url from client: {req.callback_url}")
+    else:
+        logger.info(f"Using provided callback_url: {req.callback_url}")
     
     # Persist for auditing
     try:
