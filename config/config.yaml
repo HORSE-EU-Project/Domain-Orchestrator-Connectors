@@ -37,6 +37,7 @@ testbeds:
       router_rate_limiting: "http://10.19.2.1:8001/router_rate_limiting"
       router_rate_limit: "http://10.19.2.1:8001/router_rate_limiting"
       block_ip_addresses: "http://10.19.2.1:8001/block_ip_addresses"
+      block_pod_addresses: "http://10.19.2.1:8001/block_ip_addresses"
       block_ues_multidomain: "http://10.19.2.1:8001/block_ues_multidomain"
       define_dns_servers: "http://10.19.2.1:8001/define_dns_servers"
       firewall_pfcp_requests: "http://10.19.2.1:8001/firewall_pfcp_requests"
@@ -59,7 +60,9 @@ actions:
   router_rate_limit:
     fields: { device: str, rate: int|str, duration: int|str }
   block_ip_addresses:
-    fields: { blocked_ips: list }
+    fields: { blocked_ips: list|str|None }
+  block_pod_addresses:
+    fields: { blocked_ips: list|str|None }
   block_ues_multidomain:
     fields: { domains: list|None, rate_limiting: int }
   udp_traffic_filter:
