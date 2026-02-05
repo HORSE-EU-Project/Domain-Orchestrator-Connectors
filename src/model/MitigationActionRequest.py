@@ -22,6 +22,7 @@ class MitigationActionRequest(BaseModel):
                 "intent_id": "dns-limit-001",
                 "testbed": "upc",
                 "threat": "dns_attack",
+                "callback_url": "http://rtr-api:8000/update_action_status",
                 "action": {
                     "name": "dns_rate_limiting",
                     "intent_id": "dns-limit-action-001",
@@ -43,6 +44,10 @@ class MitigationActionRequest(BaseModel):
     target_domain: str | List[str] | None = Field(
         default="",
         description="Target domain(s) - can be a single domain string or list of domains for multi-domain execution"
+    )
+    callback_url: str | None = Field(
+        default=None,
+        description="RTR endpoint URL to send status updates (e.g., http://rtr-api:8000/update_action_status)"
     )
     testbed: Annotated[
         TestBedEnum,

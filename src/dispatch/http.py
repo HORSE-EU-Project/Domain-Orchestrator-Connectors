@@ -31,10 +31,13 @@ async def dispatch(req_model):
     """
     1. Build payload via the registry
     2. POST to the correct endpoint
-    3. Return JSON/text from the test-bed
+    3. Return tuple: (response_data, http_status_code, success_flag)
     4. Raise DispatchError on non-2xx
     
     Special case: CNIT passthrough returns immediately without HTTP call
+    
+    Returns:
+        tuple: (response_dict, status_code, success_bool)
     """
     builder = BUILDER_REGISTRY[req_model.message_type]
     body_bytes, headers = builder(req_model)
@@ -47,7 +50,8 @@ async def dispatch(req_model):
     # CNIT passthrough - return the built response directly without HTTP call
     if req_model.message_type == "cnit_passthrough":
         import json
-        return json.loads(body_bytes.decode("utf-8"))
+        response_data = json.loads(body_bytes.decode("utf-8"))
+        return response_data, 200, True
     
     url = resolve_endpoint(req_model.testbed.value, req_model.action.name)
     logger.info(f"Sending mitigation request to: {url}")
@@ -69,10 +73,17 @@ async def dispatch(req_model):
 
     if not resp.is_success:
         logger.warning(f"Dispatch to {url} returned {resp.status_code}: {resp.text}")
-        raise DispatchError(f"{url} responded {resp.status_code}: {resp.text}")
+        # Return response data with failure status
+        try:
+            response_data = resp.json()
+        except ValueError:
+            response_data = {"raw": resp.text, "error": f"HTTP {resp.status_code}"}
+        return response_data, resp.status_code, False
 
     # Most UPC endpoints answer JSON; fall back to text
     try:
-        return resp.json()
+        response_data = resp.json()
     except ValueError:
-        return {"raw": resp.text}
+        response_data = {"raw": resp.text}
+    
+    return response_data, resp.status_code, True

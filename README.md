@@ -299,6 +299,112 @@ For unexpected application errors:
 }
 ```
 
+---
+
+## 🔄 Status Callback Feature
+
+The Domain-Orchestrator-Connector supports **asynchronous status updates** to notify the requesting API (e.g., RTR - Real-Time Response) about the enforcement results after actions are dispatched to the infrastructure.
+
+### How It Works
+
+1. **Request with Callback URL**: When sending a mitigation action, include an optional `callback_url` field pointing to your API's status update endpoint
+2. **Action Processing**: DOC processes the action and dispatches it to the target testbed(s)
+3. **Status Notification**: After receiving a response from the infrastructure, DOC automatically sends a status update to the provided callback URL
+4. **Result Tracking**: The callback includes detailed information about success/failure and which testbed(s) were involved
+
+### Callback Request Format
+
+When including a callback URL in your mitigation request:
+
+```json
+{
+  "command": "add",
+  "intent_type": "mitigation",
+  "intent_id": "dns-limit-001",
+  "target_domain": "upc",
+  "callback_url": "http://rtr-api:8000/update_action_status",
+  "action": {
+    "name": "dns_rate_limiting",
+    "intent_id": "dns-limit-action-001",
+    "fields": {
+      "rate": "100",
+      "duration": "300",
+      "source_ip_filter": ["192.168.1.100"]
+    }
+  }
+}
+```
+
+### Callback Payload
+
+DOC will POST to the `callback_url` with this payload format:
+
+**Success Example:**
+```json
+{
+  "intent_id": "dns-limit-001",
+  "status": "completed",
+  "info": "Action successfully enforced in UPC testbed"
+}
+```
+
+**Failure Example:**
+```json
+{
+  "intent_id": "dns-limit-001",
+  "status": "failed",
+  "info": "Action failed in UMU testbed: Connection timeout"
+}
+```
+
+**Multi-Domain Example:**
+```json
+{
+  "intent_id": "multi-domain-001",
+  "status": "partial",
+  "info": "Multi-domain execution: 2/3 successful | ✓ Action enforced in UPC testbed | ✓ Action enforced in UMU testbed | ✗ Action failed in CNIT testbed: Connection refused"
+}
+```
+
+### Callback Status Values
+
+| Status | Description |
+|--------|-------------|
+| `completed` | Action was successfully enforced in the target testbed(s) |
+| `failed` | Action failed to be enforced in the target testbed(s) |
+| `partial` | For multi-domain actions: some succeeded, others failed |
+
+### Implementation Notes
+
+- The `callback_url` field is **optional** - if not provided, DOC operates as before without callbacks
+- Callbacks are sent **asynchronously** and won't block the main response
+- DOC logs callback successes and failures for troubleshooting
+- Callback requests have a 10-second timeout by default
+- If the callback fails, the original mitigation action continues (callbacks are fire-and-forget)
+- For multi-domain requests, a single aggregated callback is sent with results from all domains
+
+### Example Integration
+
+**RTR API Endpoint** (receiving callbacks):
+```python
+@app.post("/update_action_status")
+async def update_action_status(request: StatusUpdate):
+    """
+    Receive status updates from DOC after mitigation enforcement
+    """
+    logger.info(f"Received status for {request.intent_id}: {request.status}")
+    logger.info(f"Details: {request.info}")
+    
+    # Update your internal tracking system
+    await db.update_mitigation_status(
+        intent_id=request.intent_id,
+        status=request.status,
+        details=request.info
+    )
+    
+    return {"received": True}
+```
+
 
 ## 🧪 Supported Testbeds
 ### UMU Testbed
