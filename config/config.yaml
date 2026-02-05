@@ -9,6 +9,10 @@ domain_routing:
     umu: "http://10.208.11.73:8001"  # URL of DOC deployed in UMU domain
     cnit: "http://192.168.130.62:8001"  # URL of DOC deployed in CNIT domain
 
+# RTR (Real-Time Response) API Configuration
+rtr_api:
+  callback_endpoint: "/update_action_status"  # Endpoint path for status updates (IP:PORT auto-detected from request)
+
 defaults:
   qos_units:
     rps: rps
