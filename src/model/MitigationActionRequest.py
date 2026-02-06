@@ -47,7 +47,7 @@ class MitigationActionRequest(BaseModel):
     )
     callback_url: str | None = Field(
         default=None,
-        description="RTR endpoint URL to send status updates (auto-populated from requesting client IP:PORT if not provided)"
+        description="RTR endpoint URL to send status updates (must be explicitly provided by RTR)"
     )
     testbed: Annotated[
         TestBedEnum,

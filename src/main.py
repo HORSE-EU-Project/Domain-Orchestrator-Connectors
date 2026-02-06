@@ -98,16 +98,11 @@ def ping():
 
 @app.post("/api/mitigate", response_model=MitigationActionResponse)
 async def mitigate(req: MitigationActionRequest, request: Request):
-    # Auto-populate callback_url from requesting client if not provided
-    if not req.callback_url:
-        from src.config_loader import RTR_API_CFG
-        client_host = request.client.host if request.client else "localhost"
-        client_port = request.client.port if request.client else 8000
-        callback_endpoint = RTR_API_CFG.get("callback_endpoint", "/update_action_status")
-        req.callback_url = f"http://{client_host}:{client_port}{callback_endpoint}"
-        logger.info(f"Auto-populated callback_url from client: {req.callback_url}")
+    # Log callback_url if provided by RTR
+    if req.callback_url:
+        logger.info(f"Callback URL provided by RTR: {req.callback_url}")
     else:
-        logger.info(f"Using provided callback_url: {req.callback_url}")
+        logger.info("No callback URL provided - status updates will be skipped")
     
     # Persist for auditing
     try:
@@ -185,32 +180,33 @@ async def mitigate(req: MitigationActionRequest, request: Request):
             "success" if not failed_domains else "error"
         )
         
-        # Send callback to RTR
-        success_count = len(results) - len(failed_domains)
-        total_count = len(req.target_domain)
-        
-        # Build detailed info message
-        info_parts = [f"Multi-domain execution: {success_count}/{total_count} successful"]
-        for domain, result in results.items():
-            if result["status"] == "success":
-                info_parts.append(f"✓ Action enforced in {domain.upper()} testbed")
-            elif result["status"] == "forwarded":
-                info_parts.append(f"→ Action forwarded to {domain.upper()} domain")
-            else:
-                reason = result.get("reason", "Unknown error")
-                info_parts.append(f"✗ Action failed in {domain.upper()} testbed: {reason}")
-        
-        callback_status = "completed" if overall_status == "success" else (
-            "partial" if overall_status == "partial_success" else "failed"
-        )
-        callback_info = " | ".join(info_parts)
-        
-        await send_status_update(
-            callback_url=req.callback_url,
-            intent_id=req.intent_id,
-            status=callback_status,
-            info=callback_info
-        )
+        # Send callback to RTR if callback_url is provided
+        if req.callback_url:
+            success_count = len(results) - len(failed_domains)
+            total_count = len(req.target_domain)
+            
+            # Build detailed info message
+            info_parts = [f"Multi-domain execution: {success_count}/{total_count} successful"]
+            for domain, result in results.items():
+                if result["status"] == "success":
+                    info_parts.append(f"✓ Action enforced in {domain.upper()} testbed")
+                elif result["status"] == "forwarded":
+                    info_parts.append(f"→ Action forwarded to {domain.upper()} domain")
+                else:
+                    reason = result.get("reason", "Unknown error")
+                    info_parts.append(f"✗ Action failed in {domain.upper()} testbed: {reason}")
+            
+            callback_status = "completed" if overall_status == "success" else (
+                "partial" if overall_status == "partial_success" else "failed"
+            )
+            callback_info = " | ".join(info_parts)
+            
+            await send_status_update(
+                callback_url=req.callback_url,
+                intent_id=req.intent_id,
+                status=callback_status,
+                info=callback_info
+            )
         
         return MitigationActionResponse(
             status=overall_status,
@@ -249,22 +245,23 @@ async def mitigate(req: MitigationActionRequest, request: Request):
     try:
         upstream_reply, status_code, success = await dispatch(req)
         
-        # Send callback to RTR
-        testbed_name = req.testbed.value.upper()
-        if success:
-            callback_status = "completed"
-            callback_info = f"Action successfully enforced in {testbed_name} testbed"
-        else:
-            callback_status = "failed"
-            error_msg = upstream_reply.get("error", upstream_reply.get("raw", "Unknown error"))
-            callback_info = f"Action failed in {testbed_name} testbed: {error_msg}"
-        
-        await send_status_update(
-            callback_url=req.callback_url,
-            intent_id=req.intent_id,
-            status=callback_status,
-            info=callback_info
-        )
+        # Send callback to RTR if callback_url is provided
+        if req.callback_url:
+            testbed_name = req.testbed.value.upper()
+            if success:
+                callback_status = "completed"
+                callback_info = f"Action successfully enforced in {testbed_name} testbed"
+            else:
+                callback_status = "failed"
+                error_msg = upstream_reply.get("error", upstream_reply.get("raw", "Unknown error"))
+                callback_info = f"Action failed in {testbed_name} testbed: {error_msg}"
+            
+            await send_status_update(
+                callback_url=req.callback_url,
+                intent_id=req.intent_id,
+                status=callback_status,
+                info=callback_info
+            )
         
         # If dispatch was not successful, raise exception for proper error response
         if not success:
@@ -274,27 +271,29 @@ async def mitigate(req: MitigationActionRequest, request: Request):
     except DispatchError as e:
         logger.error(e)
         
-        # Send failure callback to RTR
-        testbed_name = req.testbed.value.upper() if req.testbed else "unknown"
-        await send_status_update(
-            callback_url=req.callback_url,
-            intent_id=req.intent_id,
-            status="failed",
-            info=f"Action failed in {testbed_name} testbed: {str(e)}"
-        )
+        # Send failure callback to RTR if callback_url is provided
+        if req.callback_url:
+            testbed_name = req.testbed.value.upper() if req.testbed else "unknown"
+            await send_status_update(
+                callback_url=req.callback_url,
+                intent_id=req.intent_id,
+                status="failed",
+                info=f"Action failed in {testbed_name} testbed: {str(e)}"
+            )
         
         raise HTTPException(status_code=502, detail=str(e))
     except Exception as e:
         logger.error(e)
         
-        # Send failure callback to RTR
-        testbed_name = req.testbed.value.upper() if req.testbed else "unknown"
-        await send_status_update(
-            callback_url=req.callback_url,
-            intent_id=req.intent_id,
-            status="failed",
-            info=f"Action failed in {testbed_name} testbed: {str(e)}"
-        )
+        # Send failure callback to RTR if callback_url is provided
+        if req.callback_url:
+            testbed_name = req.testbed.value.upper() if req.testbed else "unknown"
+            await send_status_update(
+                callback_url=req.callback_url,
+                intent_id=req.intent_id,
+                status="failed",
+                info=f"Action failed in {testbed_name} testbed: {str(e)}"
+            )
         
         raise HTTPException(status_code=500, detail=str(e))
 
