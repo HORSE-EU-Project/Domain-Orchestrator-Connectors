@@ -94,5 +94,5 @@ actions:
   rate_limiting:
     fields: { device: str, interface: str, rate: str }
   block_pod_address:
-    fields: { blocked_pod: str, device: str, interface: str }
+    fields: { blocked_pod: str|list|None, blocked_ips: str|list|None, device: str, interface: str }
 

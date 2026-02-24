@@ -44,14 +44,20 @@ def build_umu_xml(req):
         }
 
     elif name == "block_pod_address":
+        # Support both blocked_pod and blocked_ips field names, handle both string and list
+        blocked_target = flds.get("blocked_pod") or flds.get("blocked_ips")
+        if isinstance(blocked_target, list):
+            # Take first element if list
+            blocked_target = blocked_target[0] if blocked_target else ""
+        
         tpl = "filtering.xml.j2"
         ctx = {
             "id": req.action.intent_id,
             "device": flds["device"],
             "input_interface": flds.get("input_interface", "*"),
             "output_interface": flds["interface"],
-            "target": flds["blocked_pod"],
-            "description": f"Block pod {flds['blocked_pod']} at {flds['device']}",
+            "target": blocked_target,
+            "description": f"Block pod {blocked_target} at {flds['device']}",
         }
 
     else:

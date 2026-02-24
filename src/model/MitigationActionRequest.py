@@ -116,10 +116,28 @@ class MitigationActionRequest(BaseModel):
         required_spec = ACTION_SCHEMAS[action_name_lower]  # <-- use .name
         fields = action.fields
 
-        missing = [
-            k for k in required_spec
-            if k not in fields or cls._is_empty(fields[k])
-        ]
+        # Special handling for block_pod_address - requires EITHER blocked_pod OR blocked_ips
+        if action_name_lower == "block_pod_address":
+            has_blocked_pod = "blocked_pod" in fields and not cls._is_empty(fields["blocked_pod"])
+            has_blocked_ips = "blocked_ips" in fields and not cls._is_empty(fields["blocked_ips"])
+            
+            if not has_blocked_pod and not has_blocked_ips:
+                raise ValueError(
+                    "Missing blocked target - provide either 'blocked_pod' or 'blocked_ips' field for action 'block_pod_address'"
+                )
+            
+            # Check other required fields (device, interface)
+            missing = [
+                k for k in required_spec
+                if k not in ["blocked_pod", "blocked_ips"] and (k not in fields or cls._is_empty(fields[k]))
+            ]
+        else:
+            # Standard validation for other actions
+            missing = [
+                k for k in required_spec
+                if k not in fields or cls._is_empty(fields[k])
+            ]
+        
         if missing:
             raise ValueError(
                 f"Missing or empty field(s) {missing} for action '{action.name}'"
