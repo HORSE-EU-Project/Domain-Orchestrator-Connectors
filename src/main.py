@@ -29,6 +29,27 @@ app = FastAPI(
 start_time = time.time()
 
 
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log all incoming requests to /api/mitigate for debugging"""
+    if request.url.path == "/api/mitigate" and request.method == "POST":
+        try:
+            body = await request.body()
+            logger.info("=" * 80)
+            logger.info("RAW REQUEST received at /api/mitigate:")
+            logger.info(f"Body: {body.decode('utf-8')}")
+            logger.info("=" * 80)
+            # Re-populate request body for downstream processing
+            async def receive():
+                return {"type": "http.request", "body": body}
+            request._receive = receive
+        except Exception as e:
+            logger.error(f"Failed to log request body: {e}")
+    
+    response = await call_next(request)
+    return response
+
+
 async def forward_to_doc(target_domain: str, payload: dict) -> dict:
     """
     Forward mitigation request to another DOC instance in a different domain.
@@ -59,7 +80,14 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     except Exception:
         payload = {}
 
-    intent_id = payload['intent_id']
+    # Log the full incoming payload and validation errors for debugging
+    logger.error("=" * 80)
+    logger.error("VALIDATION ERROR - Incoming RTR message:")
+    logger.error(f"Raw payload: {json_util.dumps(payload, indent=2)}")
+    logger.error(f"Validation errors: {exc.errors()}")
+    logger.error("=" * 80)
+
+    intent_id = payload.get('intent_id', 'unknown')
     action = payload.get("action")
 
     err = exc.errors()[0]
@@ -98,6 +126,16 @@ def ping():
 
 @app.post("/api/mitigate", response_model=MitigationActionResponse)
 async def mitigate(req: MitigationActionRequest, request: Request):
+    # Log incoming RTR message
+    logger.info("=" * 80)
+    logger.info("Received mitigation request from RTR:")
+    logger.info(f"Intent ID: {req.intent_id}")
+    logger.info(f"Command: {req.command} | Type: {req.intent_type}")
+    logger.info(f"Target Domain: {req.target_domain}")
+    logger.info(f"Action: {req.action.name}")
+    logger.info(f"Action Fields: {req.action.fields}")
+    logger.info("=" * 80)
+    
     # Log callback_url if provided by RTR
     if req.callback_url:
         logger.info(f"Callback URL provided by RTR: {req.callback_url}")
