@@ -65,6 +65,10 @@ class MitigationActionRequest(BaseModel):
     info: Optional[str] = Field(default="Awaiting enforcement")
 
     def model_post_init(self, __context):
+        # If action.intent_id is missing, use top-level intent_id
+        if not self.action.intent_id:
+            self.action.intent_id = self.intent_id
+        
         # If target_domain is empty or None, default to current domain
         if not self.target_domain or (isinstance(self.target_domain, str) and not self.target_domain.strip()):
             current_domain = DOMAIN_ROUTING.get("current_domain", "")

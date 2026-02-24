@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 class ActionObject(BaseModel):
     model_config = {
@@ -17,5 +17,5 @@ class ActionObject(BaseModel):
     }
     
     name: str = Field(..., description="Action key, e.g. dns_rate_limiting")
-    intent_id: str = Field(..., description="Per-action ID")
+    intent_id: Optional[str] = Field(default=None, description="Per-action ID (defaults to top-level intent_id if not provided)")
     fields: Dict[str, Any] = Field(..., description="Action-specific k/v pairs")
