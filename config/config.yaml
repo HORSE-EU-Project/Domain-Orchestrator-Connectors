@@ -92,7 +92,7 @@ actions:
   discard_unauthorized_packets:
     fields: { filter: str, alarm: str }
   rate_limiting:
-    fields: { device:str, interface:str, rate:str }
+    fields: { device: str, interface: str, rate: str }
   block_pod_address:
-    fields: { blocked_pod:str, device:str, interface:str }
+    fields: { blocked_pod: str, device: str, interface: str }
 
