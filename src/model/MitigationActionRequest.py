@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, field_validator
 from pydantic import constr
 from typing_extensions import Annotated
 
-from src.config_loader import TestBedEnum, ACTION_SCHEMAS, TESTBED_CFG
+from src.config_loader import TestBedEnum, ACTION_SCHEMAS, TESTBED_CFG, DOMAIN_ROUTING
 from src.model.ActionModel import ActionObject
 
 
@@ -65,6 +65,14 @@ class MitigationActionRequest(BaseModel):
     info: Optional[str] = Field(default="Awaiting enforcement")
 
     def model_post_init(self, __context):
+        # If target_domain is empty or None, default to current domain
+        if not self.target_domain or (isinstance(self.target_domain, str) and not self.target_domain.strip()):
+            current_domain = DOMAIN_ROUTING.get("current_domain", "")
+            if current_domain:
+                self.target_domain = current_domain
+            elif not self.testbed:
+                raise ValueError("No target_domain provided and current_domain not configured")
+        
         # Normalize single-element list to string
         if isinstance(self.target_domain, list) and len(self.target_domain) == 1:
             self.target_domain = self.target_domain[0]
@@ -96,6 +104,8 @@ class MitigationActionRequest(BaseModel):
         else:
             raise ValueError("Either 'testbed' or 'target_domain' field must be provided")
 
+    @field_validator("action")
+    @classmethod
     def validate_action_fields(cls, action: ActionObject) -> ActionObject:
         # Convert action name to lowercase for case-insensitive lookup
         action_name_lower = action.name.lower()
@@ -119,6 +129,7 @@ class MitigationActionRequest(BaseModel):
             raise ValueError("Missing or empty field 'intent_id'")
         return v.strip()
 
+    @staticmethod
     def _is_empty(v: Any) -> bool:
         if v is None:
             return True

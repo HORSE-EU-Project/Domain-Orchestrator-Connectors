@@ -18,7 +18,8 @@ def reload_yaml(path: pathlib.Path = _DEFAULT_YAML):
     _SPEC = _load_yaml(path)
     _TESTBED_SPEC = _SPEC["testbeds"]
     _ACTION_SPEC = _SPEC["actions"]
-    ACTION_SCHEMAS = {n: d["required_fields"] for n, d in _ACTION_SPEC.items()}
+    ACTION_SCHEMAS = {n: d["fields"] for n, d in _ACTION_SPEC.items()}
+    TESTBED_CFG = _SPEC["testbeds"]
     DOMAIN_ROUTING = _SPEC.get("domain_routing", {})
     RTR_API_CFG = _SPEC.get("rtr_api", {})
     
