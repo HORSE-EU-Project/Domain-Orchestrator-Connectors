@@ -22,7 +22,7 @@ defaults:
 
 testbeds:
   umu:
-    base_url: "http://10.208.11.70:8002/meservice"
+    base_url: "http://10.208.11.79:8002/meservice"
     message_type: umu_xml
     allowed_actions:
       - dns_rate_limiting
